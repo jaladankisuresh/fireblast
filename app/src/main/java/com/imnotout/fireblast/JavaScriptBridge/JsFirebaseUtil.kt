@@ -7,6 +7,8 @@ import com.imnotout.fireblast.AndroidApplication.Companion.jsRuntime
 import com.imnotout.fireblast.NetworkIO.JsonBuilder
 import kotlinx.coroutines.experimental.async
 
+
+
 sealed class JsFirebaseUtil {
     companion object {
         fun registerUtilFunctions(runtime: V8) {
@@ -19,7 +21,11 @@ sealed class JsFirebaseUtil {
                     arrayOf<Class<*>>(String::class.java, String::class.java, String::class.java))
             v8jFBObject.registerJavaMethod(FirebaseDB, "update", "update",
                     arrayOf<Class<*>>(String::class.java, String::class.java, String::class.java))
+            v8jFBObject.registerJavaMethod(FirebaseDB, "push", "push",
+                    arrayOf<Class<*>>(String::class.java, String::class.java, String::class.java))
             v8jFBObject.registerJavaMethod(FirebaseDB, "get", "get",
+                    arrayOf<Class<*>>(String::class.java, String::class.java))
+            v8jFBObject.registerJavaMethod(FirebaseDB, "remove", "remove",
                     arrayOf<Class<*>>(String::class.java, String::class.java))
             v8jFBObject.registerJavaMethod(FirebaseDB, "increment", "increment",
                     arrayOf<Class<*>>(String::class.java, String::class.java))
@@ -56,12 +62,23 @@ sealed class JsFirebaseUtil {
                         }
                     })
         }
+        fun push(token: String, path: String, json: String) {
+            val key = fireDB.child(path).push().key
+            update(token, "${path}/${key}", json)
+        }
         fun get(token: String, path: String) {
             fireDB.child(path)
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(data: DataSnapshot) = onSuccessResponse(token, data.value.toString())
                     override fun onCancelled(err: DatabaseError) = onErrorResponse(token, err.message)
                 })
+        }
+        fun remove(token: String, path: String) {
+            fireDB.child(path).removeValue(object : DatabaseReference.CompletionListener {
+                override fun onComplete(err: DatabaseError?, data: DatabaseReference) {
+                    err?.let { onErrorResponse(token, err.message) } ?: onSuccessResponse(token, "")
+                }
+            })
         }
         fun increment(token: String, path: String) = updateCounter(token, path, 1)
         fun decrement(token: String, path: String) = updateCounter(token, path, -1)

@@ -16,6 +16,12 @@ var fbApi = {
         cb = args[2];
         jFirebase.get(token, path);
         break;
+      case 'remove':
+        if(args.length != 3) return;
+        path = args[1];
+        cb = args[2];
+        jFirebase.remove(token, path);
+        break;
       case 'set':
         if(args.length != 4) return;
         path = args[1];
@@ -29,6 +35,13 @@ var fbApi = {
         data = args[2];
         cb = args[3];
         jFirebase.update(token, path, data);
+        break;
+      case 'push':
+        if(args.length != 4) return;
+        path = args[1];
+        data = args[2];
+        cb = args[3];
+        jFirebase.push(token, path, data);
         break;
       case 'increment':
         if(args.length != 3) return;
@@ -59,8 +72,10 @@ var fbApi = {
     }
     switch (key) {
       case 'get':
+      case 'remove':
       case 'set':
       case 'update':
+      case 'push':
       case 'increment':
       case 'decrement':
         fbRequestQueue[token] = cb;
