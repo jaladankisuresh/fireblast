@@ -35,7 +35,10 @@ sealed class JsFirebaseUtil {
                     arrayOf<Class<*>>(String::class.java, String::class.java))
             v8jFBObject.registerJavaMethod(FirebaseDB, "unregisterForChildAdded", "offChildAdded",
                     arrayOf<Class<*>>(String::class.java, String::class.java))
-
+            v8jFBObject.registerJavaMethod(FirebaseDB, "on", "on",
+                    arrayOf<Class<*>>(String::class.java, String::class.java))
+            v8jFBObject.registerJavaMethod(FirebaseDB, "off", "off",
+                    arrayOf<Class<*>>(String::class.java, String::class.java))
             v8jFBObject.release()
         }
     }
@@ -43,10 +46,13 @@ sealed class JsFirebaseUtil {
     object FirebaseDB {
         val runtime = jsRuntime
         val fireDB = FirebaseDatabase.getInstance().getReference()
-        val childAddedListeners = HashMap<String, ChildEventListener>()
+        val valueEventListeners = HashMap<String, ValueEventListener>()
+        val childAddedEventListeners = HashMap<String, ChildEventListener>()
 
         fun set(token: String, path: String, value: String) {
-            fireDB.child(path).setValue(value,
+            val number = value.toIntOrNull()
+            val setVal = if(number == null) value else number
+            fireDB.child(path).setValue(setVal,
                     object : DatabaseReference.CompletionListener {
                         override fun onComplete(err: DatabaseError?, data: DatabaseReference) {
                             err?.let { onErrorResponse(token, err.message) } ?: onSuccessResponse(token, value)
@@ -109,13 +115,33 @@ sealed class JsFirebaseUtil {
             }
 //            limitToLast(1) may not be necessary in our actual use case. implemented it for ease of testing
             fireDB.child(path).addChildEventListener(childAddedEventListener)
-            childAddedListeners.put(path, childAddedEventListener)
+            childAddedEventListeners.put(path, childAddedEventListener)
         }
         fun unregisterForChildAdded(token: String, path: String) {
             try{
-                val childAddedEventListener = childAddedListeners.get(path)
+                val childAddedEventListener = childAddedEventListeners.get(path)
                 fireDB.child(path).removeEventListener(childAddedEventListener)
-                childAddedListeners.remove(path)
+                childAddedEventListeners.remove(path)
+                onSuccessResponse(token, "")
+            }
+            catch (ex: Exception) {
+                onErrorResponse(token, ex.message!!)
+            }
+        }
+        fun on(token: String, path: String) {
+            val valueChangeEventListener = object : ValueEventListener {
+                override fun onDataChange(data: DataSnapshot) = onSuccessResponse(token, data.value.toString())
+                override fun onCancelled(err: DatabaseError) = onErrorResponse(token, err.message)
+            }
+            fireDB.child(path).addValueEventListener(valueChangeEventListener)
+            valueEventListeners.put(path, valueChangeEventListener)
+        }
+
+        fun off(token: String, path: String) {
+            try{
+                val valueEventListener = valueEventListeners.get(path)
+                fireDB.child(path).removeEventListener(valueEventListener)
+                valueEventListeners.remove(path)
                 onSuccessResponse(token, "")
             }
             catch (ex: Exception) {

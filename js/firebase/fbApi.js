@@ -55,18 +55,20 @@ var fbApi = {
         cb = args[2];
         jFirebase.decrement(token, path);
         break;
+      case 'on':
       case 'onChildAdded':
         if(args.length != 3) return;
         let stickyToken = 'stick#' + token;
         path = args[1];
         cb = args[2];
-        jFirebase.onChildAdded(stickyToken, path);
+        jFirebase[key](stickyToken, path);
         break;
+      case 'off':
       case 'offChildAdded':
         if(args.length != 2) return;
         let unstickyToken = 'unstick#' + token;
         path = args[1];
-        jFirebase.offChildAdded(unstickyToken, path);
+        jFirebase[key](unstickyToken, path);
         break;
       default: return;
     }
@@ -80,12 +82,14 @@ var fbApi = {
       case 'decrement':
         fbRequestQueue[token] = cb;
         break;
+      case 'on':
       case 'onChildAdded':
         let stickyToken = 'stick#' + token;
-        fbRequestQueue[stickyToken] = {path: path, cb: cb};
+        fbRequestQueue[stickyToken] = {key: key, path: path, cb: cb};
         break;
+      case 'off':
       case 'offChildAdded':
-      let unstickyToken = 'unstick#' + token;
+      let unstickyToken = 'unstick#' + key + '~' + token;
       fbRequestQueue[unstickyToken] = path;
       break;
     }
@@ -101,8 +105,15 @@ var fbApi = {
         delete fbRequestQueue[token];
         break;
       case 'string':
+        let hashIndex = token.indexOf('#');
+        let tildeIndex = token.indexOf('~');
+        if(hashIndex === -1) return;
+        if(tildeIndex <= hashIndex + 1) return;
+        let offListenerKey = token.substring(hashIndex + 1, tildeIndex);
+        let onListenerKey = offListenerKey.replace('off', 'on');
+        
         for (let [key, item] of fbRequestQueue) {
-          if(typeof item === 'object' && item.path === rt) {
+          if(typeof item === 'object' && item.key === onListenerKey && item.path === rt) {
             delete fbRequestQueue[key];
             delete fbRequestQueue[token];
             return;
